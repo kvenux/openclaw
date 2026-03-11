@@ -188,7 +188,7 @@ describe("matrix monitor handler pairing account scope", () => {
       accountId: "ops",
       sessionKey: "agent:ops:main",
       mainSessionKey: "agent:ops:main",
-      matchedBy: "binding.account",
+      matchedBy: "binding.account" as const,
     }));
 
     const { handler } = createMatrixHandlerTestHarness({

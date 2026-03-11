@@ -87,18 +87,50 @@ type MatrixStoredRecoveryKey = {
   };
 };
 
-function isLegacyBotSdkCryptoStore(cryptoRootDir: string): boolean {
-  return (
-    fs.existsSync(path.join(cryptoRootDir, "bot-sdk.json")) ||
-    fs.existsSync(path.join(cryptoRootDir, "matrix-sdk-crypto.sqlite3")) ||
-    fs
-      .readdirSync(cryptoRootDir, { withFileTypes: true })
-      .some(
-        (entry) =>
-          entry.isDirectory() &&
-          fs.existsSync(path.join(cryptoRootDir, entry.name, "matrix-sdk-crypto.sqlite3")),
-      )
-  );
+function detectLegacyBotSdkCryptoStore(cryptoRootDir: string): {
+  detected: boolean;
+  warning?: string;
+} {
+  try {
+    const stat = fs.statSync(cryptoRootDir);
+    if (!stat.isDirectory()) {
+      return {
+        detected: false,
+        warning:
+          `Legacy Matrix encrypted state path exists but is not a directory: ${cryptoRootDir}. ` +
+          "OpenClaw skipped automatic crypto migration for that path.",
+      };
+    }
+  } catch (err) {
+    return {
+      detected: false,
+      warning:
+        `Failed reading legacy Matrix encrypted state path (${cryptoRootDir}): ${String(err)}. ` +
+        "OpenClaw skipped automatic crypto migration for that path.",
+    };
+  }
+
+  try {
+    return {
+      detected:
+        fs.existsSync(path.join(cryptoRootDir, "bot-sdk.json")) ||
+        fs.existsSync(path.join(cryptoRootDir, "matrix-sdk-crypto.sqlite3")) ||
+        fs
+          .readdirSync(cryptoRootDir, { withFileTypes: true })
+          .some(
+            (entry) =>
+              entry.isDirectory() &&
+              fs.existsSync(path.join(cryptoRootDir, entry.name, "matrix-sdk-crypto.sqlite3")),
+          ),
+    };
+  } catch (err) {
+    return {
+      detected: false,
+      warning:
+        `Failed scanning legacy Matrix encrypted state path (${cryptoRootDir}): ${String(err)}. ` +
+        "OpenClaw skipped automatic crypto migration for that path.",
+    };
+  }
 }
 
 function resolveMatrixAccountIds(cfg: OpenClawConfig): string[] {
@@ -110,7 +142,14 @@ function resolveLegacyMatrixFlatStorePlan(params: {
   env: NodeJS.ProcessEnv;
 }): MatrixLegacyCryptoPlan | { warning: string } | null {
   const legacy = resolveMatrixLegacyFlatStoragePaths(resolveStateDir(params.env, os.homedir));
-  if (!fs.existsSync(legacy.cryptoPath) || !isLegacyBotSdkCryptoStore(legacy.cryptoPath)) {
+  if (!fs.existsSync(legacy.cryptoPath)) {
+    return null;
+  }
+  const legacyStore = detectLegacyBotSdkCryptoStore(legacy.cryptoPath);
+  if (legacyStore.warning) {
+    return { warning: legacyStore.warning };
+  }
+  if (!legacyStore.detected) {
     return null;
   }
 
@@ -183,7 +222,15 @@ function resolveMatrixLegacyCryptoPlans(params: {
       continue;
     }
     const legacyCryptoPath = path.join(target.rootDir, "crypto");
-    if (!fs.existsSync(legacyCryptoPath) || !isLegacyBotSdkCryptoStore(legacyCryptoPath)) {
+    if (!fs.existsSync(legacyCryptoPath)) {
+      continue;
+    }
+    const detectedStore = detectLegacyBotSdkCryptoStore(legacyCryptoPath);
+    if (detectedStore.warning) {
+      warnings.push(detectedStore.warning);
+      continue;
+    }
+    if (!detectedStore.detected) {
       continue;
     }
     if (

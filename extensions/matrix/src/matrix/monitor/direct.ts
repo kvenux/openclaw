@@ -102,7 +102,9 @@ export function createDirectRoomTracker(client: MatrixClient, opts: DirectRoomTr
       const memberCount = await resolveMemberCount(roomId);
       if (memberCount === 2) {
         try {
-          const nameState = await client.getRoomStateEvent(roomId, "m.room.name", "");
+          const nameState = (await client.getRoomStateEvent(roomId, "m.room.name", "")) as {
+            name?: string | null;
+          } | null;
           if (!nameState?.name?.trim()) {
             log(`matrix: dm detected via fallback (2 members, no room name) room=${roomId}`);
             return true;

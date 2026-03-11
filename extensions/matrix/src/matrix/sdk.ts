@@ -801,9 +801,9 @@ export class MatrixClient {
     }
 
     let defaultKeyId: string | null | undefined = undefined;
-    const canReadSecretStorageStatus = typeof crypto.getSecretStorageStatus === "function"; // pragma: allowlist secret
-    if (canReadSecretStorageStatus) {
-      const status = await crypto.getSecretStorageStatus().catch(() => null); // pragma: allowlist secret
+    const getSecretStorageStatus = crypto.getSecretStorageStatus; // pragma: allowlist secret
+    if (typeof getSecretStorageStatus === "function") {
+      const status = await getSecretStorageStatus.call(crypto).catch(() => null); // pragma: allowlist secret
       defaultKeyId = status?.defaultKeyId;
     }
 
@@ -870,9 +870,9 @@ export class MatrixClient {
       const rawRecoveryKey = params.recoveryKey?.trim();
       if (rawRecoveryKey) {
         let defaultKeyId: string | null | undefined = undefined;
-        const canReadSecretStorageStatus = typeof crypto.getSecretStorageStatus === "function"; // pragma: allowlist secret
-        if (canReadSecretStorageStatus) {
-          const status = await crypto.getSecretStorageStatus().catch(() => null); // pragma: allowlist secret
+        const getSecretStorageStatus = crypto.getSecretStorageStatus; // pragma: allowlist secret
+        if (typeof getSecretStorageStatus === "function") {
+          const status = await getSecretStorageStatus.call(crypto).catch(() => null); // pragma: allowlist secret
           defaultKeyId = status?.defaultKeyId;
         }
         this.recoveryKeyStore.storeEncodedRecoveryKey({
@@ -1077,9 +1077,9 @@ export class MatrixClient {
       const rawRecoveryKey = params?.recoveryKey?.trim();
       if (rawRecoveryKey) {
         let defaultKeyId: string | null | undefined = undefined;
-        const canReadSecretStorageStatus = typeof crypto.getSecretStorageStatus === "function"; // pragma: allowlist secret
-        if (canReadSecretStorageStatus) {
-          const status = await crypto.getSecretStorageStatus().catch(() => null); // pragma: allowlist secret
+        const getSecretStorageStatus = crypto.getSecretStorageStatus; // pragma: allowlist secret
+        if (typeof getSecretStorageStatus === "function") {
+          const status = await getSecretStorageStatus.call(crypto).catch(() => null); // pragma: allowlist secret
           defaultKeyId = status?.defaultKeyId;
         }
         this.recoveryKeyStore.storeEncodedRecoveryKey({
@@ -1190,11 +1190,11 @@ export class MatrixClient {
   private async resolveCachedRoomKeyBackupDecryptionKey(
     crypto: MatrixCryptoBootstrapApi,
   ): Promise<boolean | null> {
-    const canGetSessionBackupPrivateKey = typeof crypto.getSessionBackupPrivateKey === "function"; // pragma: allowlist secret
-    if (!canGetSessionBackupPrivateKey) {
+    const getSessionBackupPrivateKey = crypto.getSessionBackupPrivateKey; // pragma: allowlist secret
+    if (typeof getSessionBackupPrivateKey !== "function") {
       return null;
     }
-    const key = await crypto.getSessionBackupPrivateKey().catch(() => null); // pragma: allowlist secret
+    const key = await getSessionBackupPrivateKey.call(crypto).catch(() => null); // pragma: allowlist secret
     return key ? key.length > 0 : false;
   }
 

@@ -1,7 +1,19 @@
-import { vi } from "vitest";
+import { vi, type Mock } from "vitest";
 import type { MatrixClient } from "./sdk.js";
 
-export const matrixClientResolverMocks = {
+type MatrixClientResolverMocks = {
+  loadConfigMock: Mock<() => unknown>;
+  getMatrixRuntimeMock: Mock<() => unknown>;
+  getActiveMatrixClientMock: Mock<(...args: unknown[]) => MatrixClient | null>;
+  createMatrixClientMock: Mock<(...args: unknown[]) => Promise<MatrixClient>>;
+  isBunRuntimeMock: Mock<() => boolean>;
+  resolveMatrixAuthMock: Mock<(...args: unknown[]) => Promise<unknown>>;
+  resolveMatrixAuthContextMock: Mock<
+    (params: { cfg: unknown; accountId?: string | null }) => unknown
+  >;
+};
+
+export const matrixClientResolverMocks: MatrixClientResolverMocks = {
   loadConfigMock: vi.fn(() => ({})),
   getMatrixRuntimeMock: vi.fn(),
   getActiveMatrixClientMock: vi.fn(),

@@ -22,7 +22,7 @@ vi.mock("../client.js", () => ({
   createMatrixClient: (...args: unknown[]) => createMatrixClientMock(...args),
   isBunRuntime: () => isBunRuntimeMock(),
   resolveMatrixAuth: (...args: unknown[]) => resolveMatrixAuthMock(...args),
-  resolveMatrixAuthContext: (...args: unknown[]) => resolveMatrixAuthContextMock(...args),
+  resolveMatrixAuthContext: resolveMatrixAuthContextMock,
 }));
 
 vi.mock("../../runtime.js", () => ({

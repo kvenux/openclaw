@@ -11,6 +11,7 @@ import { ensureMatrixStartupVerification } from "./startup-verification.js";
 type MatrixStartupClient = Pick<
   MatrixClient,
   | "crypto"
+  | "getOwnDeviceVerificationStatus"
   | "getUserProfile"
   | "listOwnDevices"
   | "restoreRoomKeyBackup"

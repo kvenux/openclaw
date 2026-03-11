@@ -64,7 +64,23 @@ type MatrixHandlerTestHarnessOptions = {
   getMemberDisplayName?: MatrixMonitorHandlerParams["getMemberDisplayName"];
 };
 
-export function createMatrixHandlerTestHarness(options: MatrixHandlerTestHarnessOptions = {}) {
+type MatrixHandlerTestHarness = {
+  dispatchReplyFromConfig: () => Promise<{
+    queuedFinal: boolean;
+    counts: { final: number; block: number; tool: number };
+  }>;
+  enqueueSystemEvent: (...args: unknown[]) => void;
+  finalizeInboundContext: (ctx: unknown) => unknown;
+  handler: ReturnType<typeof createMatrixRoomMessageHandler>;
+  readAllowFromStore: MatrixMonitorHandlerParams["core"]["channel"]["pairing"]["readAllowFromStore"];
+  recordInboundSession: (...args: unknown[]) => Promise<void>;
+  resolveAgentRoute: () => typeof DEFAULT_ROUTE;
+  upsertPairingRequest: MatrixMonitorHandlerParams["core"]["channel"]["pairing"]["upsertPairingRequest"];
+};
+
+export function createMatrixHandlerTestHarness(
+  options: MatrixHandlerTestHarnessOptions = {},
+): MatrixHandlerTestHarness {
   const readAllowFromStore = options.readAllowFromStore ?? vi.fn(async () => [] as string[]);
   const upsertPairingRequest =
     options.upsertPairingRequest ?? vi.fn(async () => ({ code: "ABCDEFGH", created: false }));
@@ -109,7 +125,8 @@ export function createMatrixHandlerTestHarness(options: MatrixHandlerTestHarness
         },
         reply: {
           resolveEnvelopeFormatOptions: options.resolveEnvelopeFormatOptions ?? (() => ({})),
-          formatAgentEnvelope: options.formatAgentEnvelope ?? (({ body }) => body),
+          formatAgentEnvelope:
+            options.formatAgentEnvelope ?? (({ body }: { body: string }) => body),
           finalizeInboundContext,
           createReplyDispatcherWithTyping:
             options.createReplyDispatcherWithTyping ??

@@ -295,4 +295,27 @@ describe("matrix legacy encrypted-state migration", () => {
       );
     });
   });
+
+  it("warns instead of throwing when a legacy crypto path is a file", async () => {
+    await withTempHome(async (home) => {
+      const stateDir = path.join(home, ".openclaw");
+      writeFile(path.join(stateDir, "matrix", "crypto"), "not-a-directory");
+
+      const cfg: OpenClawConfig = {
+        channels: {
+          matrix: {
+            homeserver: "https://matrix.example.org",
+            userId: "@bot:example.org",
+            accessToken: "tok-123",
+          },
+        },
+      };
+
+      const detection = detectLegacyMatrixCrypto({ cfg, env: process.env });
+      expect(detection.plans).toHaveLength(0);
+      expect(detection.warnings).toContain(
+        `Legacy Matrix encrypted state path exists but is not a directory: ${path.join(stateDir, "matrix", "crypto")}. OpenClaw skipped automatic crypto migration for that path.`,
+      );
+    });
+  });
 });

@@ -152,10 +152,10 @@ export class MatrixRecoveryKeyStore {
     } = {},
   ): Promise<void> {
     let status: MatrixSecretStorageStatus | null = null;
-    const canReadSecretStorageStatus = typeof crypto.getSecretStorageStatus === "function"; // pragma: allowlist secret
-    if (canReadSecretStorageStatus) {
+    const getSecretStorageStatus = crypto.getSecretStorageStatus; // pragma: allowlist secret
+    if (typeof getSecretStorageStatus === "function") {
       try {
-        status = await crypto.getSecretStorageStatus();
+        status = await getSecretStorageStatus.call(crypto);
       } catch (err) {
         LogService.warn("MatrixClientLite", "Failed to read secret storage status:", err);
       }

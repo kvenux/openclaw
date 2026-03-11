@@ -294,4 +294,37 @@ describe("matrix onboarding", () => {
       allowFromKey: "channels.matrix.accounts.ops.dm.allowFrom",
     });
   });
+
+  it("reports configured when only the effective default Matrix account is configured", async () => {
+    setMatrixRuntime({
+      state: {
+        resolveStateDir: (_env: NodeJS.ProcessEnv, homeDir?: () => string) =>
+          (homeDir ?? (() => "/tmp"))(),
+      },
+      config: {
+        loadConfig: () => ({}),
+      },
+    } as never);
+
+    const status = await matrixOnboardingAdapter.getStatus({
+      cfg: {
+        channels: {
+          matrix: {
+            defaultAccount: "ops",
+            accounts: {
+              ops: {
+                homeserver: "https://matrix.ops.example.org",
+                accessToken: "ops-token",
+              },
+            },
+          },
+        },
+      } as CoreConfig,
+      accountOverrides: {},
+    });
+
+    expect(status.configured).toBe(true);
+    expect(status.statusLines).toContain("Matrix: configured");
+    expect(status.selectionHint).toBe("configured");
+  });
 });
