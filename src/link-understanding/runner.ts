@@ -3,6 +3,7 @@ import { applyTemplate } from "../auto-reply/templating.js";
 import type { OpenClawConfig } from "../config/config.js";
 import type { LinkModelConfig, LinkToolsConfig } from "../config/types.tools.js";
 import { logVerbose, shouldLogVerbose } from "../globals.js";
+import { type LookupFn, assertPublicHostname } from "../infra/net/ssrf.js";
 import { CLI_OUTPUT_MAX_BUFFER } from "../media-understanding/defaults.js";
 import { resolveTimeoutMs } from "../media-understanding/resolve.js";
 import {
@@ -17,6 +18,17 @@ export type LinkUnderstandingResult = {
   urls: string[];
   outputs: string[];
 };
+
+/**
+ * Re-validate the URL hostname via DNS resolution right before usage.
+ * Detection-stage checks only inspect the literal hostname string, which is
+ * vulnerable to DNS rebinding (hostname resolves to a public IP at detection
+ * time, then rebinds to 127.0.0.1 / cloud metadata IP at usage time).
+ */
+async function assertUrlHostnamePublic(url: string, lookupFn?: LookupFn): Promise<void> {
+  const parsed = new URL(url);
+  await assertPublicHostname(parsed.hostname, lookupFn);
+}
 
 function resolveScopeDecision(params: {
   config?: LinkToolsConfig;
@@ -43,6 +55,7 @@ async function runCliEntry(params: {
   ctx: MsgContext;
   url: string;
   config?: LinkToolsConfig;
+  lookupFn?: LookupFn;
 }): Promise<string | null> {
   if ((params.entry.type ?? "cli") !== "cli") {
     return null;
@@ -51,6 +64,11 @@ async function runCliEntry(params: {
   if (!command) {
     return null;
   }
+
+  // CWE-918: Re-validate resolved IPs before passing URL to external CLI tool.
+  // Detection-stage hostname checks are insufficient against DNS rebinding.
+  await assertUrlHostnamePublic(params.url, params.lookupFn);
+
   const args = params.entry.args ?? [];
   const timeoutMs = resolveTimeoutMsFromConfig({ config: params.config, entry: params.entry });
   const templCtx = {
@@ -78,6 +96,7 @@ async function runLinkEntries(params: {
   ctx: MsgContext;
   url: string;
   config?: LinkToolsConfig;
+  lookupFn?: LookupFn;
 }): Promise<string | null> {
   let lastError: unknown;
   for (const entry of params.entries) {
@@ -87,6 +106,7 @@ async function runLinkEntries(params: {
         ctx: params.ctx,
         url: params.url,
         config: params.config,
+        lookupFn: params.lookupFn,
       });
       if (output) {
         return output;
@@ -108,6 +128,7 @@ export async function runLinkUnderstanding(params: {
   cfg: OpenClawConfig;
   ctx: MsgContext;
   message?: string;
+  lookupFn?: LookupFn;
 }): Promise<LinkUnderstandingResult> {
   const config = params.cfg.tools?.links;
   if (!config || config.enabled === false) {
@@ -140,6 +161,7 @@ export async function runLinkUnderstanding(params: {
       ctx: params.ctx,
       url,
       config,
+      lookupFn: params.lookupFn,
     });
     if (output) {
       outputs.push(output);
