@@ -23,6 +23,7 @@ function containsShellMetacharacters(url: string): boolean {
     /\$\(/, // Command substitution $(...)
     /`/, // Backtick command substitution
     /\${/, // Variable expansion ${...}
+    /\$[a-zA-Z_0-9]/, // Bare variable expansion $VAR
     /[;|><]/, // Shell operators (& excluded: legitimate query separator)
   ];
 

@@ -53,11 +53,19 @@ describe("CWE-78: Command Injection in link-understanding", () => {
   });
 
   it("should reject URLs with variable expansion", async () => {
-    const maliciousUrl = "https://example.com/page${USER}";
-    const result = await runLinkUnderstanding(createTestConfig(maliciousUrl));
+    const testCases = [
+      "https://example.com/page${USER}",
+      "https://example.com/$HOME/exploit",
+      "https://example.com/$IFS/path",
+    ];
 
-    expect(exec.runExec).not.toHaveBeenCalled();
-    expect(result.urls).toEqual([]);
+    for (const maliciousUrl of testCases) {
+      vi.clearAllMocks();
+      const result = await runLinkUnderstanding(createTestConfig(maliciousUrl));
+
+      expect(exec.runExec).not.toHaveBeenCalled();
+      expect(result.urls).toEqual([]);
+    }
   });
 
   it("should reject URLs with shell operators", async () => {
