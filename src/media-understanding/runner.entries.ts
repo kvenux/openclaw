@@ -41,17 +41,19 @@ import { estimateBase64Size, resolveVideoMaxBase64Bytes } from "./video.js";
 export type ProviderRegistry = Map<string, MediaUnderstandingProvider>;
 
 /**
- * Reject strings containing shell metacharacters that could be interpreted
- * by shell wrappers or argument injection patterns (CWE-78).
+ * Reject strings containing unambiguously dangerous shell metacharacters
+ * that could be interpreted by shell-script wrappers (CWE-78).
+ *
+ * Only the patterns that are rare in natural language and clearly indicate
+ * shell expansion are blocked. Patterns like ;|>< and bare $VAR are
+ * intentionally excluded to avoid false positives on legitimate prompts,
+ * since runExec uses execFile (no shell) so they are not directly exploitable.
  */
 export function containsShellMetacharacters(value: string): boolean {
   const dangerousPatterns = [
     /\$\(/, // Command substitution $(...)
     /`/, // Backtick command substitution
     /\${/, // Variable expansion ${...}
-    /\$[a-zA-Z_]/, // Bare variable expansion $VAR
-    /&&/, // Shell command chaining
-    /[;|><]/, // Shell operators
   ];
   return dangerousPatterns.some((pattern) => pattern.test(value));
 }
@@ -638,15 +640,9 @@ export async function runCliEntry(params: {
   const mediaPath = pathResult.path;
   const outputBase = path.join(outputDir, path.parse(mediaPath).name);
 
-  // Reject context fields containing shell metacharacters before template
+  // Reject template context fields containing shell metacharacters before
   // substitution to prevent OS command injection (CWE-78).
-  const fieldsToValidate: Record<string, string> = { Prompt: prompt };
-  for (const [name, value] of Object.entries(fieldsToValidate)) {
-    if (containsShellMetacharacters(value)) {
-      throw new Error(`CLI entry rejected: ${name} contains shell metacharacters`);
-    }
-  }
-
+  // Validate all string fields from ctx (user-controlled) plus Prompt.
   const templCtx: MsgContext = {
     ...ctx,
     MediaPath: mediaPath,
@@ -656,6 +652,11 @@ export async function runCliEntry(params: {
     Prompt: prompt,
     MaxChars: maxChars,
   };
+  for (const [name, value] of Object.entries(templCtx)) {
+    if (typeof value === "string" && containsShellMetacharacters(value)) {
+      throw new Error(`CLI entry rejected: ${name} contains shell metacharacters`);
+    }
+  }
   const argv = [command, ...args].map((part, index) =>
     index === 0 ? part : applyTemplate(part, templCtx),
   );
