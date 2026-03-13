@@ -1,4 +1,5 @@
 import { resolveFetch } from "../infra/fetch.js";
+import { isBlockedHostname } from "../infra/net/ssrf.js";
 import { generateSecureUuid } from "../infra/secure-random.js";
 import { fetchWithTimeout } from "../utils/fetch-timeout.js";
 
@@ -28,15 +29,63 @@ export type SignalSseEvent = {
 
 const DEFAULT_TIMEOUT_MS = 10_000;
 
+// Cloud metadata and link-local IPs that are never legitimate signal-cli targets.
+// We intentionally allow loopback (127.x) and private networks (10.x, 172.16.x,
+// 192.168.x) because signal-cli runs as a local daemon by default.
+const BLOCKED_SIGNAL_METADATA_PREFIXES = [
+  "169.254.", // link-local / cloud metadata (AWS, Azure, GCP)
+];
+
+const BLOCKED_SIGNAL_METADATA_IPS = new Set(["0.0.0.0", "[::ffff:169.254.169.254]"]);
+
+// Hostnames that are allowed for Signal despite being blocked by the general
+// SSRF policy. Signal-cli runs as a local daemon, so localhost is expected.
+const SIGNAL_ALLOWED_HOSTNAMES = new Set(["localhost"]);
+
+/**
+ * Validate that a Signal base URL does not target cloud metadata endpoints
+ * or other known-dangerous destinations (CWE-918).
+ *
+ * Signal legitimately talks to a local daemon, so loopback and private
+ * networks are allowed. Only cloud metadata / link-local IPs and
+ * dangerous hostnames (*.internal, *.local, metadata.google.internal)
+ * are blocked.
+ */
+export function assertSignalBaseUrlAllowed(url: string): void {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    throw new Error(`Invalid Signal base URL: ${url}`);
+  }
+  const hostname = parsed.hostname.toLowerCase().replace(/^\[|\]$/g, "");
+
+  // Block link-local / cloud metadata IPs
+  if (BLOCKED_SIGNAL_METADATA_IPS.has(hostname)) {
+    throw new Error(`Signal base URL targets a blocked address: ${hostname}`);
+  }
+  for (const prefix of BLOCKED_SIGNAL_METADATA_PREFIXES) {
+    if (hostname.startsWith(prefix)) {
+      throw new Error(`Signal base URL targets a link-local/metadata address: ${hostname}`);
+    }
+  }
+
+  // Block dangerous hostnames, but allow localhost for signal-cli
+  if (!SIGNAL_ALLOWED_HOSTNAMES.has(hostname) && isBlockedHostname(hostname)) {
+    throw new Error(`Signal base URL targets a blocked hostname: ${hostname}`);
+  }
+}
+
 function normalizeBaseUrl(url: string): string {
   const trimmed = url.trim();
   if (!trimmed) {
     throw new Error("Signal base URL is required");
   }
-  if (/^https?:\/\//i.test(trimmed)) {
-    return trimmed.replace(/\/+$/, "");
-  }
-  return `http://${trimmed}`.replace(/\/+$/, "");
+  const normalized = /^https?:\/\//i.test(trimmed)
+    ? trimmed.replace(/\/+$/, "")
+    : `http://${trimmed}`.replace(/\/+$/, "");
+  assertSignalBaseUrlAllowed(normalized);
+  return normalized;
 }
 
 function getRequiredFetch(): typeof fetch {
