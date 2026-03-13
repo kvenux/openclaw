@@ -20,13 +20,13 @@ function containsShellMetacharacters(url: string): boolean {
   // Reject URLs containing shell metacharacters that could be interpreted
   // by shell wrappers or argument injection patterns (CWE-78)
   const dangerousPatterns = [
-    /\$\(/,           // Command substitution $(...)
-    /`/,              // Backtick command substitution
-    /\${/,            // Variable expansion ${...}
-    /[;|><]/,         // Shell operators (& excluded: legitimate query separator)
+    /\$\(/, // Command substitution $(...)
+    /`/, // Backtick command substitution
+    /\${/, // Variable expansion ${...}
+    /[;|><]/, // Shell operators (& excluded: legitimate query separator)
   ];
 
-  return dangerousPatterns.some(pattern => pattern.test(url));
+  return dangerousPatterns.some((pattern) => pattern.test(url));
 }
 
 function isAllowedUrl(raw: string): boolean {

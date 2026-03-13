@@ -1,6 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { runLinkUnderstanding } from "./runner.js";
 import * as exec from "../process/exec.js";
+import { runLinkUnderstanding } from "./runner.js";
 
 vi.mock("../process/exec.js");
 
@@ -92,11 +92,7 @@ describe("CWE-78: Command Injection in link-understanding", () => {
       const result = await runLinkUnderstanding(createTestConfig(validUrl));
 
       // Should execute with valid URL
-      expect(exec.runExec).toHaveBeenCalledWith(
-        "curl",
-        [validUrl],
-        expect.any(Object)
-      );
+      expect(exec.runExec).toHaveBeenCalledWith("curl", [validUrl], expect.any(Object));
       expect(result.urls).toEqual([validUrl]);
     }
   });
