@@ -3,7 +3,7 @@ import { applyTemplate } from "../auto-reply/templating.js";
 import type { OpenClawConfig } from "../config/config.js";
 import type { LinkModelConfig, LinkToolsConfig } from "../config/types.tools.js";
 import { logVerbose, shouldLogVerbose } from "../globals.js";
-import { type LookupFn, assertPublicHostname } from "../infra/net/ssrf.js";
+import { type LookupFn, SsrFBlockedError, assertPublicHostname } from "../infra/net/ssrf.js";
 import { CLI_OUTPUT_MAX_BUFFER } from "../media-understanding/defaults.js";
 import { resolveTimeoutMs } from "../media-understanding/resolve.js";
 import {
@@ -112,6 +112,10 @@ async function runLinkEntries(params: {
         return output;
       }
     } catch (err) {
+      if (err instanceof SsrFBlockedError) {
+        logVerbose(`SSRF blocked for ${params.url}: ${String(err)}`);
+        return null;
+      }
       lastError = err;
       if (shouldLogVerbose()) {
         logVerbose(`Link understanding failed for ${params.url}: ${String(err)}`);
