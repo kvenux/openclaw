@@ -1,5 +1,16 @@
-import { EnvHttpProxyAgent } from "undici";
 import { afterEach, describe, expect, it, vi } from "vitest";
+
+const envHttpProxyAgentCtor = vi.hoisted(() =>
+  vi.fn(function MockEnvHttpProxyAgent(this: { options: unknown }, options: unknown) {
+    this.options = options;
+  }),
+);
+
+vi.mock("undici", async (importOriginal) => {
+  const actual = (await importOriginal()) as Record<string, unknown>;
+  return { ...actual, EnvHttpProxyAgent: envHttpProxyAgentCtor };
+});
+
 import { fetchWithSsrFGuard, GUARDED_FETCH_MODE } from "./fetch-guard.js";
 
 describe("CWE-918: trusted_env_proxy must preserve DNS pinning", () => {
@@ -10,18 +21,14 @@ describe("CWE-918: trusted_env_proxy must preserve DNS pinning", () => {
 
   afterEach(() => {
     vi.unstubAllEnvs();
+    envHttpProxyAgentCtor.mockClear();
   });
 
   it("should pass pinned lookup to EnvHttpProxyAgent in trusted_env_proxy mode", async () => {
     vi.stubEnv("HTTP_PROXY", "http://127.0.0.1:7890");
     const lookupFn = createPublicLookup();
-    let capturedDispatcher: unknown = null;
 
-    const fetchImpl = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
-      const requestInit = init as RequestInit & { dispatcher?: unknown };
-      capturedDispatcher = requestInit.dispatcher;
-      return new Response("ok", { status: 200 });
-    });
+    const fetchImpl = vi.fn(async () => new Response("ok", { status: 200 }));
 
     const result = await fetchWithSsrFGuard({
       url: "https://public.example/resource",
@@ -31,7 +38,11 @@ describe("CWE-918: trusted_env_proxy must preserve DNS pinning", () => {
     });
 
     expect(fetchImpl).toHaveBeenCalledTimes(1);
-    expect(capturedDispatcher).toBeInstanceOf(EnvHttpProxyAgent);
+    expect(envHttpProxyAgentCtor).toHaveBeenCalledTimes(1);
+    const ctorArg = envHttpProxyAgentCtor.mock.calls[0]?.[0] as
+      | { connect?: { lookup?: unknown } }
+      | undefined;
+    expect(ctorArg?.connect?.lookup).toBeTypeOf("function");
     await result.release();
   });
 
@@ -51,7 +62,6 @@ describe("CWE-918: trusted_env_proxy must preserve DNS pinning", () => {
 
   it("should block DNS rebinding via trusted_env_proxy", async () => {
     vi.stubEnv("HTTP_PROXY", "http://127.0.0.1:7890");
-    // Simulate DNS rebinding: hostname resolves to private IP
     const rebindLookup = vi.fn(async () => [
       { address: "127.0.0.1", family: 4 },
     ]) as unknown as LookupFn;
