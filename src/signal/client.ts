@@ -36,7 +36,11 @@ const BLOCKED_SIGNAL_METADATA_PREFIXES = [
   "169.254.", // link-local / cloud metadata (AWS, Azure, GCP)
 ];
 
-const BLOCKED_SIGNAL_METADATA_IPS = new Set(["0.0.0.0", "[::ffff:169.254.169.254]"]);
+const BLOCKED_SIGNAL_METADATA_IPS = new Set([
+  "0.0.0.0",
+  "::ffff:169.254.169.254",
+  "::ffff:a9fe:a9fe", // URL parser normalizes IPv4-mapped IPv6 to hex
+]);
 
 // Hostnames that are allowed for Signal despite being blocked by the general
 // SSRF policy. Signal-cli runs as a local daemon, so localhost is expected.

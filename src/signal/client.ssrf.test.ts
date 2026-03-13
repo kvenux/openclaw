@@ -11,6 +11,10 @@ describe("CWE-918: Signal base URL SSRF validation", () => {
     );
   });
 
+  it("should block IPv6-mapped metadata IP (::ffff:169.254.169.254)", () => {
+    expect(() => assertSignalBaseUrlAllowed("http://[::ffff:169.254.169.254]/")).toThrow(/blocked/);
+  });
+
   it("should block link-local range (169.254.x.x)", () => {
     expect(() => assertSignalBaseUrlAllowed("http://169.254.1.1:8080/")).toThrow(
       /link-local\/metadata/,
