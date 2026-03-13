@@ -95,7 +95,11 @@ function readGatewayProcessArgsSync(pid: number): string[] | null {
       return null;
     }
     const argv = parseCmdScriptCommandLine(command);
-    assertSafeArgv(argv);
+    try {
+      assertSafeArgv(argv);
+    } catch {
+      return null;
+    }
     return argv;
   }
   return null;

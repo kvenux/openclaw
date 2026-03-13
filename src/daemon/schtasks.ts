@@ -142,12 +142,10 @@ export async function readScheduledTaskCommand(
     if (!commandLine) {
       return null;
     }
+    const programArguments = parseCmdScriptCommandLine(commandLine);
+    assertSafeArgv(programArguments);
     return {
-      programArguments: (() => {
-        const argv = parseCmdScriptCommandLine(commandLine);
-        assertSafeArgv(argv);
-        return argv;
-      })(),
+      programArguments,
       ...(workingDirectory ? { workingDirectory } : {}),
       ...(Object.keys(environment).length > 0 ? { environment } : {}),
       sourcePath: scriptPath,
