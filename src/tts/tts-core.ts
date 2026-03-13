@@ -36,7 +36,7 @@ export function isValidVoiceId(voiceId: string): boolean {
  * private networks, so loopback and private IPs are allowed. Only cloud
  * metadata / link-local IPs and dangerous hostnames are blocked.
  */
-function assertTtsBaseUrlAllowed(url: string): void {
+export function assertTtsBaseUrlAllowed(url: string): void {
   let parsed: URL;
   try {
     parsed = new URL(url);

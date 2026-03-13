@@ -1,53 +1,65 @@
 import { describe, expect, it } from "vitest";
-import { isBlockedHostname } from "../infra/net/ssrf.js";
+import { assertTtsBaseUrlAllowed } from "./tts-core.js";
 
 describe("CWE-918: TTS base URL SSRF validation", () => {
   describe("blocked addresses (cloud metadata and dangerous hostnames)", () => {
     it("should block cloud metadata IP (169.254.169.254)", () => {
-      // Verified via assertTtsBaseUrlAllowed prefix check on 169.254.
-      expect("169.254.169.254".startsWith("169.254.")).toBe(true);
+      expect(() => assertTtsBaseUrlAllowed("http://169.254.169.254/")).toThrow(
+        /link-local\/metadata/,
+      );
+      expect(() => assertTtsBaseUrlAllowed("http://169.254.169.254:80/")).toThrow(
+        /link-local\/metadata/,
+      );
     });
 
     it("should block link-local range (169.254.x.x)", () => {
-      expect("169.254.1.1".startsWith("169.254.")).toBe(true);
-      expect("169.254.0.1".startsWith("169.254.")).toBe(true);
+      expect(() => assertTtsBaseUrlAllowed("http://169.254.1.1:8080/")).toThrow(
+        /link-local\/metadata/,
+      );
+      expect(() => assertTtsBaseUrlAllowed("http://169.254.0.1/")).toThrow(/link-local\/metadata/);
+    });
+
+    it("should block 0.0.0.0", () => {
+      expect(() => assertTtsBaseUrlAllowed("http://0.0.0.0:8880/v1")).toThrow(/blocked address/);
     });
 
     it("should block metadata.google.internal", () => {
-      expect(isBlockedHostname("metadata.google.internal")).toBe(true);
+      expect(() =>
+        assertTtsBaseUrlAllowed("http://metadata.google.internal/computeMetadata/v1/"),
+      ).toThrow(/blocked hostname/);
     });
 
     it("should block *.internal and *.local hostnames", () => {
-      expect(isBlockedHostname("service.internal")).toBe(true);
-      expect(isBlockedHostname("tts.local")).toBe(true);
+      expect(() => assertTtsBaseUrlAllowed("http://service.internal:8080/")).toThrow(
+        /blocked hostname/,
+      );
+      expect(() => assertTtsBaseUrlAllowed("http://tts.local:8080/")).toThrow(/blocked hostname/);
     });
 
     it("should block localhost.localdomain", () => {
-      expect(isBlockedHostname("localhost.localdomain")).toBe(true);
+      expect(() => assertTtsBaseUrlAllowed("http://localhost.localdomain:8080/")).toThrow(
+        /blocked hostname/,
+      );
     });
   });
 
   describe("allowed addresses (legitimate TTS endpoints)", () => {
-    it("should allow api.elevenlabs.io", () => {
-      expect(isBlockedHostname("api.elevenlabs.io")).toBe(false);
-    });
-
-    it("should allow api.openai.com", () => {
-      expect(isBlockedHostname("api.openai.com")).toBe(false);
-    });
-
     it("should allow localhost (self-hosted TTS like Kokoro)", () => {
-      // localhost is explicitly allowlisted in assertTtsBaseUrlAllowed
-      expect(isBlockedHostname("localhost")).toBe(true); // blocked by general policy
-      // but assertTtsBaseUrlAllowed has an explicit exception for "localhost"
+      expect(() => assertTtsBaseUrlAllowed("http://localhost:8880/v1")).not.toThrow();
+    });
+
+    it("should allow public hostnames", () => {
+      expect(() => assertTtsBaseUrlAllowed("https://api.elevenlabs.io/v1")).not.toThrow();
+      expect(() => assertTtsBaseUrlAllowed("https://api.openai.com/v1")).not.toThrow();
+      expect(() => assertTtsBaseUrlAllowed("https://tts.example.com/v1")).not.toThrow();
     });
 
     it("should allow public IPs", () => {
-      expect(isBlockedHostname("93.184.216.34")).toBe(false);
+      expect(() => assertTtsBaseUrlAllowed("http://93.184.216.34:8880/v1")).not.toThrow();
     });
 
-    it("should allow custom public TTS endpoints", () => {
-      expect(isBlockedHostname("tts.example.com")).toBe(false);
+    it("should reject invalid URLs", () => {
+      expect(() => assertTtsBaseUrlAllowed("not-a-url")).toThrow(/Invalid TTS base URL/);
     });
   });
 });
